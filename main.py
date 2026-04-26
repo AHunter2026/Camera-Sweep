@@ -35,13 +35,7 @@ for cycle in range(1,3):
 
     # Countdown
     if cycle != 2:
-        print(f"{i} sweeps done!")
         for remaining in range(wait_seconds, 0, -1):
             sys.stdout.write(f"\r Next cycle in {remaining} seconds... ")
             sleep(1)
         print()
-
-print("*****")
-print("All done!")
-print("Thank you for using!")
-print("*****")
