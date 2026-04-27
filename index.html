@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bug Sweeper</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080c10;
+    --surface:   #0d1520;
+    --border:    #1a2d42;
+    --accent:    #00e5ff;
+    --accent2:   #ff6b35;
+    --success:   #39ff14;
+    --danger:    #ff2244;
+    --text:      #c8dff0;
+    --muted:     #4a6a80;
+    --glow:      0 0 20px rgba(0,229,255,0.3);
+    --glow-warm: 0 0 20px rgba(255,107,53,0.3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanline effect */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeDown 0.8s ease both;
+  }
+
+  .logo-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .spider-icon {
+    font-size: 2.8rem;
+    filter: drop-shadow(0 0 12px var(--accent));
+    animation: spin-bob 6s ease-in-out infinite;
+  }
+
+  @keyframes spin-bob {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25%       { transform: translateY(-6px) rotate(-5deg); }
+    75%       { transform: translateY(4px) rotate(5deg); }
+  }
+
+  h1 {
+    font-family: 'Exo 2', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent) 0%, #ffffff 50%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-top: 0.25rem;
+  }
+
+  /* ── STATUS BADGE ── */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
+    animation: fadeDown 0.8s 0.1s ease both;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  .status-dot.idle    { background: var(--muted); }
+  .status-dot.sweeping { background: var(--success); box-shadow: 0 0 10px var(--success); animation: pulse 1s infinite; }
+  .status-dot.waiting { background: var(--accent2); box-shadow: 0 0 10px var(--accent2); animation: pulse 2s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  .status-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    transition: color 0.3s;
+  }
+
+  .status-label.sweeping { color: var(--success); }
+  .status-label.waiting  { color: var(--accent2); }
+
+  /* ── MAIN GRID ── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+
+  .card.active {
+    border-color: rgba(0,229,255,0.3);
+    box-shadow: var(--glow);
+  }
+
+  .card-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .card-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2.5rem;
+    font-weight: 400;
+    color: var(--accent);
+    line-height: 1;
+    transition: color 0.3s;
+  }
+
+  .card-sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ── SWEEP PROGRESS BAR ── */
+  .progress-wrap {
+    margin-top: 1rem;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* ── COUNTDOWN RING ── */
+  .countdown-wrap {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .ring-container {
+    position: relative;
+    width: 70px;
+    height: 70px;
+    flex-shrink: 0;
+  }
+
+  .ring-container svg {
+    transform: rotate(-90deg);
+  }
+
+  .ring-bg { fill: none; stroke: var(--border); stroke-width: 4; }
+  .ring-progress {
+    fill: none;
+    stroke: var(--accent2);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-dasharray: 188.4;
+    stroke-dashoffset: 188.4;
+    transition: stroke-dashoffset 1s linear;
+    filter: drop-shadow(0 0 4px var(--accent2));
+  }
+
+  .ring-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--accent2);
+  }
+
+  /* ── BUTTONS ── */
+  .btn-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.8s 0.3s ease both;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 1.1rem 1.5rem;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover::after  { opacity: 1; }
+  .btn:active        { transform: scale(0.97); }
+  .btn:disabled      { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .btn-start {
+    background: linear-gradient(135deg, #00b894, #00e5ff);
+    color: #000;
+    box-shadow: 0 4px 20px rgba(0,229,255,0.25);
+  }
+  .btn-start:hover:not(:disabled) { box-shadow: 0 6px 28px rgba(0,229,255,0.45); }
+
+  .btn-stop {
+    background: linear-gradient(135deg, #ff2244, #ff6b35);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(255,34,68,0.25);
+  }
+  .btn-stop:hover:not(:disabled) { box-shadow: 0 6px 28px rgba(255,34,68,0.45); }
+
+  /* ── CYCLE COUNTER CARD ── */
+  .full-width {
+    grid-column: 1 / -1;
+  }
+
+  /* ── HISTORY LOG ── */
+  .history-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    animation: fadeUp 0.8s 0.4s ease both;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .history-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+    opacity: 0.5;
+  }
+
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .history-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .history-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+  }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 220px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .history-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(0,229,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    animation: slideIn 0.4s ease both;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .history-cycle { color: var(--accent); font-weight: bold; }
+  .history-time  { color: var(--muted); }
+  .history-sweeps { color: var(--text); }
+  .history-badge {
+    background: rgba(57,255,20,0.1);
+    border: 1px solid rgba(57,255,20,0.3);
+    color: var(--success);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+  }
+
+  .history-empty {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: center;
+    padding: 1.5rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    margin-top: 2.5rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    animation: fadeUp 0.8s 0.5s ease both;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Number flip animation */
+  .flip {
+    animation: flip 0.3s ease both;
+  }
+  @keyframes flip {
+    0%   { transform: translateY(-8px); opacity: 0; }
+    100% { transform: translateY(0);    opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-wrap">
+      <span class="spider-icon">🕷️</span>
+      <h1>Bug Sweeper</h1>
+      <span class="spider-icon" style="animation-delay: -3s;">🕸️</span>
+    </div>
+    <p class="subtitle">Camera Maintenance System &nbsp;·&nbsp; Pico W</p>
+  </header>
+
+  <!-- STATUS -->
+  <div class="status-bar">
+    <div class="status-dot idle" id="statusDot"></div>
+    <span class="status-label idle" id="statusLabel">IDLE — READY</span>
+  </div>
+
+  <!-- STATS GRID -->
+  <div class="grid">
+
+    <!-- Sweep Counter -->
+    <div class="card" id="sweepCard">
+      <div class="card-label">Current Sweep</div>
+      <div class="card-value" id="sweepVal">—</div>
+      <div class="card-sub" id="sweepSub">of 20 sweeps</div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- Countdown -->
+    <div class="card" id="countCard">
+      <div class="card-label">Next Cycle In</div>
+      <div class="countdown-wrap">
+        <div class="ring-container">
+          <svg width="70" height="70" viewBox="0 0 70 70">
+            <circle class="ring-bg" cx="35" cy="35" r="30"/>
+            <circle class="ring-progress" id="ringProgress" cx="35" cy="35" r="30"/>
+          </svg>
+          <div class="ring-text" id="countVal">—</div>
+        </div>
+        <div>
+          <div class="card-value" style="font-size:1rem; color: var(--accent2);" id="countLabel">Waiting for run</div>
+          <div class="card-sub">seconds remaining</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cycle -->
+    <div class="card">
+      <div class="card-label">Total Cycles Run</div>
+      <div class="card-value" id="cycleVal">0</div>
+      <div class="card-sub">since boot</div>
+    </div>
+
+    <!-- Connection -->
+    <div class="card">
+      <div class="card-label">Device</div>
+      <div class="card-value" style="font-size:1.1rem; color: var(--success);">ONLINE</div>
+      <div class="card-sub" id="deviceIp">Raspberry Pi Pico W</div>
+    </div>
+
+  </div>
+
+  <!-- BUTTONS -->
+  <div class="btn-row">
+    <button class="btn btn-start" id="btnStart" onclick="sendCommand('start')">▶ Start Sweep</button>
+    <button class="btn btn-stop"  id="btnStop"  onclick="sendCommand('stop')" disabled>■ Stop</button>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="history-card">
+    <div class="history-header">
+      <span class="history-title">📋 &nbsp;Sweep History Log</span>
+      <span class="history-count" id="historyCount">0 runs</span>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty" id="emptyMsg">No sweeps completed yet. Hit Start to begin.</div>
+    </div>
+  </div>
+
+  <footer>Bug Sweeper v1.0 &nbsp;·&nbsp; Raspberry Pi Pico W &nbsp;·&nbsp; MicroPython</footer>
+
+</div>
+
+<script>
+  const WAIT_SECONDS = 30;
+  let prevStatus = 'idle';
+  let prevSweep  = 0;
+
+  // ── SEND COMMAND ──────────────────────────────────────────────────
+  async function sendCommand(cmd) {
+    try {
+      await fetch(`/${cmd}`);
+    } catch(e) {
+      console.warn('Command error:', e);
+    }
+  }
+
+  // ── POLL STATUS ───────────────────────────────────────────────────
+  async function pollStatus() {
+    try {
+      const res  = await fetch('/status');
+      const data = await res.json();
+      updateUI(data);
+    } catch(e) {
+      // Device unreachable
+      document.getElementById('statusLabel').textContent = 'CONNECTION LOST';
+    }
+    setTimeout(pollStatus, 1000);
+  }
+
+  // ── UPDATE UI ─────────────────────────────────────────────────────
+  function updateUI(d) {
+    const dot    = document.getElementById('statusDot');
+    const label  = document.getElementById('statusLabel');
+    const sweepV = document.getElementById('sweepVal');
+    const sweepS = document.getElementById('sweepSub');
+    const countV = document.getElementById('countVal');
+    const countL = document.getElementById('countLabel');
+    const cycleV = document.getElementById('cycleVal');
+    const pBar   = document.getElementById('progressBar');
+    const ring   = document.getElementById('ringProgress');
+    const btnS   = document.getElementById('btnStart');
+    const btnX   = document.getElementById('btnStop');
+    const sweepCard = document.getElementById('sweepCard');
+    const countCard = document.getElementById('countCard');
+
+    // Status dot + label
+    dot.className   = `status-dot ${d.status}`;
+    label.className = `status-label ${d.status}`;
+
+    if (d.status === 'sweeping') {
+      label.textContent = `SWEEPING — CYCLE ${d.cycle}`;
+      sweepCard.classList.add('active');
+      countCard.classList.remove('active');
+      btnS.disabled = true;
+      btnX.disabled = false;
+    } else if (d.status === 'waiting') {
+      label.textContent = 'WAITING — NEXT CYCLE SOON';
+      sweepCard.classList.remove('active');
+      countCard.classList.add('active');
+      btnS.disabled = true;
+      btnX.disabled = false;
+    } else {
+      label.textContent = 'IDLE — READY';
+      sweepCard.classList.remove('active');
+      countCard.classList.remove('active');
+      btnS.disabled = false;
+      btnX.disabled = true;
+    }
+
+    // Sweep counter
+    if (d.status === 'sweeping' && d.sweep > 0) {
+      if (d.sweep !== prevSweep) {
+        sweepV.classList.remove('flip');
+        void sweepV.offsetWidth;
+        sweepV.classList.add('flip');
+      }
+      sweepV.textContent = d.sweep;
+      sweepS.textContent = `of ${d.total_sweeps} sweeps`;
+      pBar.style.width   = `${(d.sweep / d.total_sweeps) * 100}%`;
+    } else {
+      sweepV.textContent = '—';
+      pBar.style.width   = '0%';
+    }
+    prevSweep = d.sweep;
+
+    // Countdown ring
+    if (d.status === 'waiting' && d.countdown > 0) {
+      const pct    = d.countdown / WAIT_SECONDS;
+      const offset = 188.4 * (1 - pct);
+      ring.style.strokeDashoffset = offset;
+      countV.textContent = d.countdown;
+      countL.textContent = `${d.countdown}s remaining`;
+    } else {
+      ring.style.strokeDashoffset = 188.4;
+      countV.textContent = '—';
+      countL.textContent = d.status === 'sweeping' ? 'Sweeping now...' : 'Waiting for run';
+    }
+
+    // Cycle count
+    cycleV.textContent = d.cycle;
+
+    // History log
+    const list  = document.getElementById('historyList');
+    const empty = document.getElementById('emptyMsg');
+    const count = document.getElementById('historyCount');
+
+    if (d.history && d.history.length > 0) {
+      empty && (empty.style.display = 'none');
+      count.textContent = `${d.history.length} run${d.history.length !== 1 ? 's' : ''}`;
+
+      // Only re-render if history changed
+      if (list.children.length - (empty ? 1 : 0) !== d.history.length) {
+        // Clear non-empty items
+        Array.from(list.querySelectorAll('.history-item')).forEach(el => el.remove());
+        d.history.forEach(item => {
+          const el = document.createElement('div');
+          el.className = 'history-item';
+          el.innerHTML = `
+            <span class="history-cycle">#${item.cycle}</span>
+            <span class="history-time">${item.time}</span>
+            <span class="history-sweeps">${item.sweeps} sweeps</span>
+            <span class="history-badge">DONE</span>
+          `;
+          list.appendChild(el);
+        });
+      }
+    } else {
+      empty && (empty.style.display = 'block');
+      count.textContent = '0 runs';
+    }
+
+    prevStatus = d.status;
+  }
+
+  // Start polling
+  pollStatus();
+</script>
+</body>
+</html>
