@@ -2,11 +2,13 @@
 
 A MicroPython web-controlled servo system running on a Raspberry Pi Pico W. Built to automate the removal of bugs, spider webs, and debris from outdoor security camera lenses — controllable from any browser on the local network without touching the hardware.
 
+**Recent addition NOT seen: incorporation into Home Assistant via RestAPI**
+
 ---
 
 ## Real-World Use Case
 
-Outdoor security cameras in rural environments collect spider webs, bugs, and debris on the lens over time. Manually cleaning them means physically accessing the camera mount. Bug Sweeper attaches an SG90 servo directly to the camera housing and sweeps a cleaning arm across the lens on a scheduled cycle or on demand via a local web dashboard — no ladder required.
+Outdoor security cameras in rural environments collect spider webs, bugs, and debris on the lens over time. Manually cleaning them means physically accessing the camera mount. Bug Sweeper attaches an SG90 servo directly to the camera housing and sweeps a cleaning arm across the lens on a scheduled cycle or on demand via a local web dashboard — no going from camera to camera required.
 
 ---
 
@@ -17,7 +19,6 @@ Outdoor security cameras in rural environments collect spider webs, bugs, and de
 - **Manual 10** — triggers a quick 10-sweep one-shot run for on-demand cleaning
 - **E-Stop** — pauses the servo mid-sweep instantly; resumes exactly where it left off
 - **Live progress** — real-time sweep counter, progress bar, and animated countdown ring
-- **Sweep history log** — timestamped log of every completed run, distinguishing normal vs manual runs
 - **Static IP** — configured directly on the Pico for consistent local network access
 
 ---
