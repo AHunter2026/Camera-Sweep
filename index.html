@@ -6,677 +6,247 @@
 <title>Bug Sweeper</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:        #080c10;
-    --surface:   #0d1520;
-    --border:    #1a2d42;
-    --accent:    #00e5ff;
-    --accent2:   #ff6b35;
-    --success:   #39ff14;
-    --danger:    #ff2244;
-    --text:      #c8dff0;
-    --muted:     #4a6a80;
-    --glow:      0 0 20px rgba(0,229,255,0.3);
-    --glow-warm: 0 0 20px rgba(255,107,53,0.3);
-  }
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Exo 2', sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* Animated grid background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* Scanline effect */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.08) 2px,
-      rgba(0,0,0,0.08) 4px
-    );
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .wrapper {
-    position: relative;
-    z-index: 1;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 2rem 1.5rem 4rem;
-  }
-
-  /* ── HEADER ── */
-  header {
-    text-align: center;
-    margin-bottom: 3rem;
-    animation: fadeDown 0.8s ease both;
-  }
-
-  .logo-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .spider-icon {
-    font-size: 2.8rem;
-    filter: drop-shadow(0 0 12px var(--accent));
-    animation: spin-bob 6s ease-in-out infinite;
-  }
-
-  @keyframes spin-bob {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    25%       { transform: translateY(-6px) rotate(-5deg); }
-    75%       { transform: translateY(4px) rotate(5deg); }
-  }
-
-  h1 {
-    font-family: 'Exo 2', sans-serif;
-    font-weight: 800;
-    font-size: clamp(2rem, 5vw, 3.2rem);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    background: linear-gradient(135deg, var(--accent) 0%, #ffffff 50%, var(--accent2) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .subtitle {
-    font-family: 'Share Tech Mono', monospace;
-    color: var(--muted);
-    font-size: 0.75rem;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    margin-top: 0.25rem;
-  }
-
-  /* ── STATUS BADGE ── */
-  .status-bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    margin-bottom: 2.5rem;
-    animation: fadeDown 0.8s 0.1s ease both;
-  }
-
-  .status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--muted);
-    transition: background 0.3s, box-shadow 0.3s;
-  }
-
-  .status-dot.idle    { background: var(--muted); }
-  .status-dot.sweeping { background: var(--success); box-shadow: 0 0 10px var(--success); animation: pulse 1s infinite; }
-  .status-dot.waiting { background: var(--accent2); box-shadow: 0 0 10px var(--accent2); animation: pulse 2s infinite; }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.4; }
-  }
-
-  .status-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.85rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--muted);
-    transition: color 0.3s;
-  }
-
-  .status-label.sweeping { color: var(--success); }
-  .status-label.waiting  { color: var(--accent2); }
-
-  /* ── MAIN GRID ── */
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.25rem;
-    margin-bottom: 1.25rem;
-    animation: fadeUp 0.8s 0.2s ease both;
-  }
-
-  @media (max-width: 600px) {
-    .grid { grid-template-columns: 1fr; }
-  }
-
-  /* ── CARDS ── */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.3s, box-shadow 0.3s;
-  }
-
-  .card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0.5;
-  }
-
-  .card.active {
-    border-color: rgba(0,229,255,0.3);
-    box-shadow: var(--glow);
-  }
-
-  .card-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 0.75rem;
-  }
-
-  .card-value {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 2.5rem;
-    font-weight: 400;
-    color: var(--accent);
-    line-height: 1;
-    transition: color 0.3s;
-  }
-
-  .card-sub {
-    font-size: 0.75rem;
-    color: var(--muted);
-    margin-top: 0.4rem;
-    font-family: 'Share Tech Mono', monospace;
-  }
-
-  /* ── SWEEP PROGRESS BAR ── */
-  .progress-wrap {
-    margin-top: 1rem;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--success));
-    border-radius: 2px;
-    width: 0%;
-    transition: width 0.5s ease;
-    box-shadow: 0 0 8px var(--accent);
-  }
-
-  /* ── COUNTDOWN RING ── */
-  .countdown-wrap {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-  }
-
-  .ring-container {
-    position: relative;
-    width: 70px;
-    height: 70px;
-    flex-shrink: 0;
-  }
-
-  .ring-container svg {
-    transform: rotate(-90deg);
-  }
-
-  .ring-bg { fill: none; stroke: var(--border); stroke-width: 4; }
-  .ring-progress {
-    fill: none;
-    stroke: var(--accent2);
-    stroke-width: 4;
-    stroke-linecap: round;
-    stroke-dasharray: 188.4;
-    stroke-dashoffset: 188.4;
-    transition: stroke-dashoffset 1s linear;
-    filter: drop-shadow(0 0 4px var(--accent2));
-  }
-
-  .ring-text {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 1.1rem;
-    color: var(--accent2);
-  }
-
-  /* ── BUTTONS ── */
-  .btn-row {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
-    animation: fadeUp 0.8s 0.3s ease both;
-  }
-
-  .btn {
-    flex: 1;
-    padding: 1.1rem 1.5rem;
-    border: none;
-    border-radius: 10px;
-    font-family: 'Exo 2', sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
-  }
-
-  .btn::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  .btn:hover::after  { opacity: 1; }
-  .btn:active        { transform: scale(0.97); }
-  .btn:disabled      { opacity: 0.35; cursor: not-allowed; transform: none; }
-
-  .btn-start {
-    background: linear-gradient(135deg, #00b894, #00e5ff);
-    color: #000;
-    box-shadow: 0 4px 20px rgba(0,229,255,0.25);
-  }
-  .btn-start:hover:not(:disabled) { box-shadow: 0 6px 28px rgba(0,229,255,0.45); }
-
-  .btn-stop {
-    background: linear-gradient(135deg, #ff2244, #ff6b35);
-    color: #fff;
-    box-shadow: 0 4px 20px rgba(255,34,68,0.25);
-  }
-  .btn-stop:hover:not(:disabled) { box-shadow: 0 6px 28px rgba(255,34,68,0.45); }
-
-  /* ── CYCLE COUNTER CARD ── */
-  .full-width {
-    grid-column: 1 / -1;
-  }
-
-  /* ── HISTORY LOG ── */
-  .history-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    animation: fadeUp 0.8s 0.4s ease both;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .history-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent2), transparent);
-    opacity: 0.5;
-  }
-
-  .history-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-
-  .history-title {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .history-count {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    color: var(--accent2);
-    letter-spacing: 0.1em;
-  }
-
-  .history-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    max-height: 220px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-
-  .history-item {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.6rem 0.75rem;
-    background: rgba(0,229,255,0.03);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.75rem;
-    animation: slideIn 0.4s ease both;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(-12px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-
-  .history-cycle { color: var(--accent); font-weight: bold; }
-  .history-time  { color: var(--muted); }
-  .history-sweeps { color: var(--text); }
-  .history-badge {
-    background: rgba(57,255,20,0.1);
-    border: 1px solid rgba(57,255,20,0.3);
-    color: var(--success);
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
-  }
-
-  .history-empty {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.75rem;
-    color: var(--muted);
-    text-align: center;
-    padding: 1.5rem;
-    letter-spacing: 0.1em;
-  }
-
-  /* ── FOOTER ── */
-  footer {
-    text-align: center;
-    margin-top: 2.5rem;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    color: var(--muted);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    animation: fadeUp 0.8s 0.5s ease both;
-  }
-
-  /* ── ANIMATIONS ── */
-  @keyframes fadeDown {
-    from { opacity: 0; transform: translateY(-16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Number flip animation */
-  .flip {
-    animation: flip 0.3s ease both;
-  }
-  @keyframes flip {
-    0%   { transform: translateY(-8px); opacity: 0; }
-    100% { transform: translateY(0);    opacity: 1; }
-  }
+:root {
+  --bg:      #080c10;
+  --surface: #0d1520;
+  --border:  #1a2d42;
+  --accent:  #00e5ff;
+  --accent2: #ff6b35;
+  --success: #39ff14;
+  --text:    #c8dff0;
+  --muted:   #4a6a80;
+  --purple:  #a29bfe;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:0}
+.wrapper{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:2rem 1.5rem 4rem}
+header{text-align:center;margin-bottom:2rem;animation:fadeDown .8s ease both}
+.logo-wrap{display:inline-flex;align-items:center;gap:1rem;margin-bottom:.4rem}
+.spider{font-size:2.5rem;filter:drop-shadow(0 0 12px var(--accent));animation:bob 6s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(0deg)}25%{transform:translateY(-5px) rotate(-5deg)}75%{transform:translateY(3px) rotate(5deg)}}
+h1{font-weight:800;font-size:clamp(1.8rem,5vw,3rem);letter-spacing:.12em;text-transform:uppercase;background:linear-gradient(135deg,var(--accent) 0%,#fff 50%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.subtitle{font-family:'Share Tech Mono',monospace;color:var(--muted);font-size:.7rem;letter-spacing:.25em;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem;animation:fadeUp .8s .1s ease both}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.4rem;position:relative;overflow:hidden;transition:all .3s}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:.6}
+#sweepCard::before{background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+#countCard::before{background:linear-gradient(90deg,transparent,var(--success),transparent)}
+#cycleCard::before{background:linear-gradient(90deg,transparent,var(--success),transparent)}
+#deviceCard::before{background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.card.glow-cyan{border-color:rgba(0,229,255,.4);box-shadow:0 0 20px rgba(0,229,255,.3)}
+.card.glow-green{border-color:rgba(57,255,20,.4);box-shadow:0 0 20px rgba(57,255,20,.2)}
+.card-lbl{font-family:'Share Tech Mono',monospace;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);margin-bottom:.7rem}
+.card-val{font-family:'Share Tech Mono',monospace;font-size:2.3rem;color:var(--accent);line-height:1}
+.card-sub{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);margin-top:.35rem}
+.prog-wrap{margin-top:.9rem;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--success));border-radius:2px;width:0%;transition:width .4s ease;box-shadow:0 0 8px var(--accent)}
+.ring-wrap{display:flex;align-items:center;justify-content:center;padding:.5rem 0}
+.ring-box{position:relative;width:130px;height:130px}
+.ring-box svg{transform:rotate(-90deg)}
+.ring-track{fill:none;stroke:var(--border);stroke-width:7}
+.ring-arc{fill:none;stroke:var(--success);stroke-width:7;stroke-linecap:round;stroke-dasharray:364.4;stroke-dashoffset:364.4;transition:stroke-dashoffset 1s linear;filter:drop-shadow(0 0 6px #39ff14) drop-shadow(0 0 14px rgba(57,255,20,.4))}
+.ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace}
+.ring-num{font-size:1.7rem;color:var(--success);line-height:1}
+.ring-unit{font-size:.55rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-top:.15rem}
+.btn-row{display:flex;align-items:center;justify-content:center;gap:3rem;margin-bottom:1.5rem;animation:fadeUp .8s .2s ease both}
+.btn-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.btn-lbl{font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;text-align:center}
+.circle-btn{width:130px;height:130px;border-radius:50%;font-family:'Exo 2',sans-serif;font-size:.9rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:4px solid;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.3;transition:transform .15s,box-shadow .2s,background .3s,border-color .3s}
+.circle-btn:active{transform:scale(.93)}
+.circle-btn:disabled{opacity:.2;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-manual{border-color:var(--purple);background:radial-gradient(circle at 38% 32%,#8e80fe,#3d2fa0);color:#fff;box-shadow:0 0 28px rgba(162,155,254,.45),0 0 70px rgba(162,155,254,.15),inset 0 3px 10px rgba(255,255,255,.15),inset 0 -3px 10px rgba(0,0,0,.35)}
+.btn-manual:hover:not(:disabled){transform:scale(1.06);box-shadow:0 0 44px rgba(162,155,254,.7),0 0 110px rgba(162,155,254,.25),inset 0 3px 10px rgba(255,255,255,.15)}
+.btn-estop{border-color:#ff2244;background:radial-gradient(circle at 38% 32%,#ff5577,#880011);color:#fff;box-shadow:0 0 28px rgba(255,34,68,.55),0 0 70px rgba(255,34,68,.2),inset 0 3px 10px rgba(255,255,255,.2),inset 0 -3px 10px rgba(0,0,0,.4)}
+.btn-estop:hover:not(:disabled){transform:scale(1.06);box-shadow:0 0 48px rgba(255,34,68,.8),0 0 120px rgba(255,34,68,.3),inset 0 3px 10px rgba(255,255,255,.2)}
+.btn-estop.resume{border-color:#ffaa00;background:radial-gradient(circle at 38% 32%,#ffee66,#996600);color:#000;box-shadow:0 0 28px rgba(255,170,0,.55),0 0 70px rgba(255,170,0,.2),inset 0 3px 10px rgba(255,255,255,.3);animation:rpulse 1.5s infinite}
+@keyframes rpulse{0%,100%{box-shadow:0 0 28px rgba(255,170,0,.55),0 0 70px rgba(255,170,0,.2),inset 0 3px 10px rgba(255,255,255,.3)}50%{box-shadow:0 0 52px rgba(255,170,0,.9),0 0 120px rgba(255,170,0,.35),inset 0 3px 10px rgba(255,255,255,.3)}}
+footer{text-align:center;margin-top:2.5rem;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.2em;text-transform:uppercase}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.flip{animation:numflip .25s ease both}
+@keyframes numflip{0%{transform:translateY(-6px);opacity:0}100%{transform:translateY(0);opacity:1}}
 </style>
 </head>
 <body>
 <div class="wrapper">
-
-  <!-- HEADER -->
-  <header>
-    <div class="logo-wrap">
-      <span class="spider-icon">🕷️</span>
-      <h1>Bug Sweeper</h1>
-      <span class="spider-icon" style="animation-delay: -3s;">🕸️</span>
-    </div>
-    <p class="subtitle">Camera Maintenance System &nbsp;·&nbsp; Pico W</p>
-  </header>
-
-  <!-- STATUS -->
-  <div class="status-bar">
-    <div class="status-dot idle" id="statusDot"></div>
-    <span class="status-label idle" id="statusLabel">IDLE — READY</span>
+ 
+<header>
+  <div class="logo-wrap">
+    <span class="spider">🕷️</span>
+    <h1>Bug Sweeper</h1>
+    <span class="spider" style="animation-delay:-3s">🕸️</span>
   </div>
-
-  <!-- STATS GRID -->
-  <div class="grid">
-
-    <!-- Sweep Counter -->
-    <div class="card" id="sweepCard">
-      <div class="card-label">Current Sweep</div>
-      <div class="card-value" id="sweepVal">—</div>
-      <div class="card-sub" id="sweepSub">of 20 sweeps</div>
-      <div class="progress-wrap">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
-    </div>
-
-    <!-- Countdown -->
-    <div class="card" id="countCard">
-      <div class="card-label">Next Cycle In</div>
-      <div class="countdown-wrap">
-        <div class="ring-container">
-          <svg width="70" height="70" viewBox="0 0 70 70">
-            <circle class="ring-bg" cx="35" cy="35" r="30"/>
-            <circle class="ring-progress" id="ringProgress" cx="35" cy="35" r="30"/>
-          </svg>
-          <div class="ring-text" id="countVal">—</div>
-        </div>
-        <div>
-          <div class="card-value" style="font-size:1rem; color: var(--accent2);" id="countLabel">Waiting for run</div>
-          <div class="card-sub">seconds remaining</div>
+  <p class="subtitle">Camera Maintenance System</p>
+</header>
+ 
+<div class="grid">
+ 
+  <div class="card" id="sweepCard">
+    <div class="card-lbl">Current Sweep</div>
+    <div class="card-val" id="sweepVal">—</div>
+    <div class="card-sub" id="sweepSub">of 20 sweeps</div>
+    <div class="prog-wrap"><div class="prog-bar" id="progBar"></div></div>
+  </div>
+ 
+  <div class="card" id="countCard">
+    <div class="card-lbl">Next Cycle In</div>
+    <div class="ring-wrap">
+      <div class="ring-box">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle class="ring-track" cx="65" cy="65" r="58"/>
+          <circle class="ring-arc" id="ringArc" cx="65" cy="65" r="58"/>
+        </svg>
+        <div class="ring-inner">
+          <span class="ring-num" id="ringNum">—</span>
+          <span class="ring-unit" id="ringUnit">standby</span>
         </div>
       </div>
     </div>
-
-    <!-- Cycle -->
-    <div class="card">
-      <div class="card-label">Total Cycles Run</div>
-      <div class="card-value" id="cycleVal">0</div>
-      <div class="card-sub">since boot</div>
-    </div>
-
-    <!-- Connection -->
-    <div class="card">
-      <div class="card-label">Device</div>
-      <div class="card-value" style="font-size:1.1rem; color: var(--success);">ONLINE</div>
-      <div class="card-sub" id="deviceIp">Raspberry Pi Pico W</div>
-    </div>
-
   </div>
-
-  <!-- BUTTONS -->
-  <div class="btn-row">
-    <button class="btn btn-start" id="btnStart" onclick="sendCommand('start')">▶ Start Sweep</button>
-    <button class="btn btn-stop"  id="btnStop"  onclick="sendCommand('stop')" disabled>■ Stop</button>
+ 
+  <div class="card" id="cycleCard">
+    <div class="card-lbl">Total Cycles</div>
+    <div class="card-val" id="cycleVal">0</div>
+    <div class="card-sub">since boot</div>
   </div>
-
-  <!-- HISTORY -->
-  <div class="history-card">
-    <div class="history-header">
-      <span class="history-title">📋 &nbsp;Sweep History Log</span>
-      <span class="history-count" id="historyCount">0 runs</span>
-    </div>
-    <div class="history-list" id="historyList">
-      <div class="history-empty" id="emptyMsg">No sweeps completed yet. Hit Start to begin.</div>
-    </div>
+ 
+  <div class="card" id="deviceCard">
+    <div class="card-lbl">Device Status</div>
+    <div class="card-val" style="font-size:1rem;color:var(--success)">ONLINE</div>
   </div>
-
-  <footer>Bug Sweeper v1.0 &nbsp;·&nbsp; Raspberry Pi Pico W &nbsp;·&nbsp; MicroPython</footer>
-
+ 
 </div>
-
+ 
+<div class="btn-row">
+  <div class="btn-wrap">
+    <button class="circle-btn btn-manual" id="btnManual" onclick="cmd('manual')">MANUAL</button>
+  </div>
+  <div class="btn-wrap">
+    <button class="circle-btn btn-estop" id="btnEstop" onclick="cmd('estop')">E&#8209;STOP</button>
+  </div>
+</div>
+ 
+<footer>Bug Sweeper v3.0 &nbsp;·&nbsp; MicroPython &nbsp;·&nbsp; Raspberry Pi Pico W</footer>
+</div>
+ 
 <script>
-  const WAIT_SECONDS = 30;
-  let prevStatus = 'idle';
-  let prevSweep  = 0;
-
-  // ── SEND COMMAND ──────────────────────────────────────────────────
-  async function sendCommand(cmd) {
-    try {
-      await fetch(`/${cmd}`);
-    } catch(e) {
-      console.warn('Command error:', e);
+const CIRC = 364.4;
+const WAIT = 43200;
+let prevSweep = 0;
+ 
+async function cmd(c) {
+  try { await fetch('/' + c); } catch(e) {}
+}
+ 
+function update(d) {
+  const status        = d.status || 'sweeping';
+  const sweep         = d.sweep || 0;
+  const totalSweeps   = d.total_sweeps || 20;
+  const countdown     = d.countdown || 0;
+  const cycle         = d.cycle || 0;
+  const manualRunning = d.manual_running || false;
+  const manualSweep   = d.manual_sweep || 0;
+ 
+  // Sweep card
+  const sweepCard = document.getElementById('sweepCard');
+  const sweepVal  = document.getElementById('sweepVal');
+  const sweepSub  = document.getElementById('sweepSub');
+  const progBar   = document.getElementById('progBar');
+ 
+  if (manualRunning) {
+    sweepVal.style.fontSize = '1.2rem';
+    sweepVal.textContent    = `MANUAL ${manualSweep}/10`;
+    sweepSub.textContent    = 'manual run';
+    progBar.style.width     = `${(manualSweep / 10) * 100}%`;
+    sweepCard.className     = 'card glow-cyan';
+  } else if (status === 'sweeping' && sweep > 0) {
+    if (sweep !== prevSweep) {
+      sweepVal.classList.remove('flip');
+      void sweepVal.offsetWidth;
+      sweepVal.classList.add('flip');
     }
+    sweepVal.style.fontSize = '';
+    sweepVal.textContent    = sweep;
+    sweepSub.textContent    = `of ${totalSweeps} sweeps`;
+    progBar.style.width     = `${(sweep / totalSweeps) * 100}%`;
+    sweepCard.className     = 'card glow-cyan';
+  } else {
+    sweepVal.style.fontSize = '1.1rem';
+    sweepVal.textContent    = 'STANDBY';
+    sweepSub.textContent    = 'of 20 sweeps';
+    progBar.style.width     = '0%';
+    sweepCard.className     = 'card';
   }
-
-  // ── POLL STATUS ───────────────────────────────────────────────────
-  async function pollStatus() {
-    try {
-      const res  = await fetch('/status');
-      const data = await res.json();
-      updateUI(data);
-    } catch(e) {
-      // Device unreachable
-      document.getElementById('statusLabel').textContent = 'CONNECTION LOST';
+  prevSweep = sweep;
+ 
+  // Countdown ring
+  const ringArc   = document.getElementById('ringArc');
+  const ringNum   = document.getElementById('ringNum');
+  const ringUnit  = document.getElementById('ringUnit');
+  const countCard = document.getElementById('countCard');
+ 
+  if (status === 'waiting' && countdown > 0) {
+    ringArc.style.strokeDashoffset = CIRC * (1 - countdown / WAIT);
+    if (countdown >= 3600) {
+      const h = Math.floor(countdown / 3600);
+      const m = Math.floor((countdown % 3600) / 60);
+      ringNum.textContent  = `${h}h`;
+      ringUnit.textContent = `${m}m left`;
+    } else if (countdown >= 60) {
+      ringNum.textContent  = `${Math.floor(countdown / 60)}m`;
+      ringUnit.textContent = `${countdown % 60}s left`;
+    } else {
+      ringNum.textContent  = countdown;
+      ringUnit.textContent = 'seconds';
     }
-    setTimeout(pollStatus, 1000);
+    countCard.className = 'card glow-green';
+  } else {
+    ringArc.style.strokeDashoffset = CIRC;
+    if (d.paused) {
+      ringNum.textContent  = '⏸';
+      ringUnit.textContent = 'paused';
+    } else {
+      ringNum.textContent  = '—';
+      ringUnit.textContent = status === 'sweeping' ? 'sweeping' : 'standby';
+    }
+    countCard.className = 'card';
   }
-
-  // ── UPDATE UI ─────────────────────────────────────────────────────
-  function updateUI(d) {
-    const dot    = document.getElementById('statusDot');
-    const label  = document.getElementById('statusLabel');
-    const sweepV = document.getElementById('sweepVal');
-    const sweepS = document.getElementById('sweepSub');
-    const countV = document.getElementById('countVal');
-    const countL = document.getElementById('countLabel');
-    const cycleV = document.getElementById('cycleVal');
-    const pBar   = document.getElementById('progressBar');
-    const ring   = document.getElementById('ringProgress');
-    const btnS   = document.getElementById('btnStart');
-    const btnX   = document.getElementById('btnStop');
-    const sweepCard = document.getElementById('sweepCard');
-    const countCard = document.getElementById('countCard');
-
-    // Status dot + label
-    dot.className   = `status-dot ${d.status}`;
-    label.className = `status-label ${d.status}`;
-
-    if (d.status === 'sweeping') {
-      label.textContent = `SWEEPING — CYCLE ${d.cycle}`;
-      sweepCard.classList.add('active');
-      countCard.classList.remove('active');
-      btnS.disabled = true;
-      btnX.disabled = false;
-    } else if (d.status === 'waiting') {
-      label.textContent = 'WAITING — NEXT CYCLE SOON';
-      sweepCard.classList.remove('active');
-      countCard.classList.add('active');
-      btnS.disabled = true;
-      btnX.disabled = false;
-    } else {
-      label.textContent = 'IDLE — READY';
-      sweepCard.classList.remove('active');
-      countCard.classList.remove('active');
-      btnS.disabled = false;
-      btnX.disabled = true;
-    }
-
-    // Sweep counter
-    if (d.status === 'sweeping' && d.sweep > 0) {
-      if (d.sweep !== prevSweep) {
-        sweepV.classList.remove('flip');
-        void sweepV.offsetWidth;
-        sweepV.classList.add('flip');
-      }
-      sweepV.textContent = d.sweep;
-      sweepS.textContent = `of ${d.total_sweeps} sweeps`;
-      pBar.style.width   = `${(d.sweep / d.total_sweeps) * 100}%`;
-    } else {
-      sweepV.textContent = '—';
-      pBar.style.width   = '0%';
-    }
-    prevSweep = d.sweep;
-
-    // Countdown ring
-    if (d.status === 'waiting' && d.countdown > 0) {
-      const pct    = d.countdown / WAIT_SECONDS;
-      const offset = 188.4 * (1 - pct);
-      ring.style.strokeDashoffset = offset;
-      countV.textContent = d.countdown;
-      countL.textContent = `${d.countdown}s remaining`;
-    } else {
-      ring.style.strokeDashoffset = 188.4;
-      countV.textContent = '—';
-      countL.textContent = d.status === 'sweeping' ? 'Sweeping now...' : 'Waiting for run';
-    }
-
-    // Cycle count
-    cycleV.textContent = d.cycle;
-
-    // History log
-    const list  = document.getElementById('historyList');
-    const empty = document.getElementById('emptyMsg');
-    const count = document.getElementById('historyCount');
-
-    if (d.history && d.history.length > 0) {
-      empty && (empty.style.display = 'none');
-      count.textContent = `${d.history.length} run${d.history.length !== 1 ? 's' : ''}`;
-
-      // Only re-render if history changed
-      if (list.children.length - (empty ? 1 : 0) !== d.history.length) {
-        // Clear non-empty items
-        Array.from(list.querySelectorAll('.history-item')).forEach(el => el.remove());
-        d.history.forEach(item => {
-          const el = document.createElement('div');
-          el.className = 'history-item';
-          el.innerHTML = `
-            <span class="history-cycle">#${item.cycle}</span>
-            <span class="history-time">${item.time}</span>
-            <span class="history-sweeps">${item.sweeps} sweeps</span>
-            <span class="history-badge">DONE</span>
-          `;
-          list.appendChild(el);
-        });
-      }
-    } else {
-      empty && (empty.style.display = 'block');
-      count.textContent = '0 runs';
-    }
-
-    prevStatus = d.status;
+ 
+  // Cycle count
+  document.getElementById('cycleVal').textContent = cycle;
+ 
+  // Buttons
+  const btnManual = document.getElementById('btnManual');
+  const btnEstop  = document.getElementById('btnEstop');
+  const estopLbl  = document.getElementById('estopLbl');
+ 
+  btnManual.disabled = (status === 'sweeping' && !manualRunning) || manualRunning;
+  btnEstop.disabled  = false;
+ 
+  if (d.paused) {
+    btnEstop.classList.add('resume');
+    btnEstop.textContent = 'RESUME';
+    estopLbl.textContent = 'tap to resume';
+  } else {
+    btnEstop.classList.remove('resume');
+    btnEstop.innerHTML   = 'E&#8209;STOP';
+    estopLbl.textContent = 'emergency stop';
   }
-
-  // Start polling
-  pollStatus();
+}
+ 
+async function poll() {
+  try {
+    const r = await fetch('/status');
+    const d = await r.json();
+    update(d);
+  } catch(e) {}
+  setTimeout(poll, 500);
+}
+ 
+window.onload = poll;
 </script>
 </body>
 </html>
